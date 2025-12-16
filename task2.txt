@@ -1,0 +1,151 @@
+/* =========================================================
+   ADVANCED SQL DATA ANALYSIS REPORT
+   Topic: Sales Trends & Performance Analysis
+   Techniques Used:
+   - Window Functions
+   - Subqueries
+   - CTEs (Common Table Expressions)
+   ========================================================= */
+
+/* -------------------------------
+   1. CREATE TABLE
+   ------------------------------- */
+
+CREATE TABLE Sales (
+    sale_id INT,
+    sale_date DATE,
+    region VARCHAR(20),
+    salesperson VARCHAR(50),
+    amount INT
+);
+
+/* -------------------------------
+   2. INSERT SAMPLE DATA
+   ------------------------------- */
+
+INSERT INTO Sales VALUES
+(1, '2024-01-05', 'North', 'Ali', 5000),
+(2, '2024-01-10', 'South', 'Sara', 7000),
+(3, '2024-01-15', 'North', 'Ali', 6000),
+(4, '2024-02-01', 'East', 'John', 4000),
+(5, '2024-02-05', 'South', 'Sara', 8000),
+(6, '2024-02-10', 'North', 'Ali', 9000),
+(7, '2024-03-01', 'East', 'John', 7500),
+(8, '2024-03-05', 'South', 'Sara', 6500);
+
+/* =========================================================
+   3. CTE: MONTHLY SALES TREND ANALYSIS
+   Identifies monthly sales growth pattern
+   ========================================================= */
+
+WITH Monthly_Sales AS (
+    SELECT
+        EXTRACT(MONTH FROM sale_date) AS month,
+        SUM(amount) AS total_sales
+    FROM Sales
+    GROUP BY EXTRACT(MONTH FROM sale_date)
+)
+SELECT
+    month,
+    total_sales,
+    LAG(total_sales) OVER (ORDER BY month) AS previous_month_sales,
+    (total_sales - LAG(total_sales) OVER (ORDER BY month)) AS growth
+FROM Monthly_Sales;
+
+/*
+INSIGHT:
+- Shows month-wise sales trend
+- Positive growth indicates increasing sales
+*/
+
+/* =========================================================
+   4. WINDOW FUNCTION: RANK SALESPEOPLE BY REGION
+   Identifies top performers per region
+   ========================================================= */
+
+SELECT
+    region,
+    salesperson,
+    SUM(amount) AS total_sales,
+    RANK() OVER (PARTITION BY region ORDER BY SUM(amount) DESC) AS rank_in_region
+FROM Sales
+GROUP BY region, salesperson;
+
+/*
+INSIGHT:
+- Helps identify best-performing salesperson in each region
+- Useful for incentives and performance reviews
+*/
+
+/* =========================================================
+   5. SUBQUERY: ABOVE-AVERAGE SALES TRANSACTIONS
+   Detects high-value sales patterns
+   ========================================================= */
+
+SELECT
+    sale_id,
+    salesperson,
+    amount
+FROM Sales
+WHERE amount > (
+    SELECT AVG(amount)
+    FROM Sales
+);
+
+/*
+INSIGHT:
+- Filters transactions contributing significantly to revenue
+- Useful for premium customer identification
+*/
+
+/* =========================================================
+   6. WINDOW FUNCTION: RUNNING TOTAL (CUMULATIVE SALES)
+   Shows sales accumulation over time
+   ========================================================= */
+
+SELECT
+    sale_date,
+    region,
+    amount,
+    SUM(amount) OVER (ORDER BY sale_date) AS cumulative_sales
+FROM Sales
+ORDER BY sale_date;
+
+/*
+INSIGHT:
+- Reveals revenue growth over time
+- Helps in forecasting and trend visualization
+*/
+
+/* =========================================================
+   7. CTE + WINDOW FUNCTION: TOP 1 SALESPERSON OVERALL
+   ========================================================= */
+
+WITH Salesperson_Total AS (
+    SELECT
+        salesperson,
+        SUM(amount) AS total_sales
+    FROM Sales
+    GROUP BY salesperson
+)
+SELECT
+    salesperson,
+    total_sales
+FROM (
+    SELECT
+        salesperson,
+        total_sales,
+        RANK() OVER (ORDER BY total_sales DESC) AS rnk
+    FROM Salesperson_Total
+) t
+WHERE rnk = 1;
+
+/*
+INSIGHT:
+- Identifies the highest revenue-generating salesperson
+- Useful for rewards and strategic planning
+*/
+
+/* =========================================================
+   END OF REPORT
+   ========================================================= */
